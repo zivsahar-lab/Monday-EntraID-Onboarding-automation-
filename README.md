@@ -125,7 +125,7 @@ Update the workflow placeholders with the actual board ID, column IDs, and statu
 
 For a real environment, avoid hardcoding secrets in HTTP Request nodes. Prefer n8n credentials, environment variables, or a secret manager.
 
-For temporary passwords, prefer generating a unique random password per user instead of using a static value.
+New user are created with temporary passwords, a unique random password per user instead of using a static value is preferred so feel free to implement that for your own use case.
 
 ## Known Implementation Notes
 
