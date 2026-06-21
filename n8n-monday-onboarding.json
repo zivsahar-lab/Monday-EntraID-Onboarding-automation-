@@ -1,0 +1,240 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyX",
+              "value": 5,
+              "unit": "minutes"
+            }
+          ]
+        },
+        "filters": {
+          "custom": "",
+          "readStatus": "unread"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.microsoftOutlookTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -336
+      ],
+      "id": "62831479-9917-43fe-b306-62f432e5c2b7",
+      "name": "Microsoft Outlook Trigger",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_N8N_OUTLOOK_CREDENTIAL_ID",
+          "name": "REPLACE_WITH_YOUR_OUTLOOK_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "2ae9db38-b48b-4f53-a641-e4ec980975f2",
+              "leftValue": "={{$json.subject}}",
+              "rightValue": "User creation request",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        448,
+        -336
+      ],
+      "id": "65b1f229-e296-4769-8129-406065b99668",
+      "name": "Check User Creation Request"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "a571ff70-36d7-4533-ae61-b382d303fe62",
+              "leftValue": "={{$json.from}}",
+              "rightValue": "REPLACE_WITH_ALLOWED_REQUESTER_EMAIL@example.com",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        224,
+        -336
+      ],
+      "id": "40927a62-11c7-4462-adf8-09a3f3c14c42",
+      "name": "Validate email address"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.monday.com/v2",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "REPLACE_WITH_YOUR_MONDAY_API_TOKEN"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"mutation { create_item(board_id: REPLACE_WITH_YOUR_MONDAY_BOARD_ID, item_name: \\\"{{$json.subject}}\\\") { id name } }\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        896,
+        -336
+      ],
+      "id": "9c28294c-4fbe-45bc-9b80-fb9dc7983302",
+      "name": "Monday Ticket creation"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const subject = $json.subject || '';\nconst from = $json.from || '';\nconst bodyPreview = $json.bodyPreview || '';\n\nconst employeeName = subject.replace(/user creation request\\s*-\\s*/i, '').trim();\n\nreturn {\n  ...$json,\n  employeeName,\n  requesterEmail: from,\n  notes: bodyPreview\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        -336
+      ],
+      "id": "59e6fcce-b045-4f7d-8e73-72932eb79a2a",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "toRecipients": "REPLACE_WITH_APPROVER_EMAIL@example.com",
+        "subject": "=Approval Needed - {{$node[\"Code in JavaScript\"].json.employeeName}}",
+        "bodyContent": "=A new Entra user creation request is waiting for approval.\n\nUser to create:\n{{$node[\"Code in JavaScript\"].json.employeeName}}\n\nRequested by:\n{{$node[\"Code in JavaScript\"].json.requesterEmail}}\n\nOriginal email subject:\n{{$node[\"Code in JavaScript\"].json.subject}}\n\nMonday ticket was created.\n",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.microsoftOutlook",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        -336
+      ],
+      "id": "0a85e579-f748-4967-993a-4b4bc7168e8f",
+      "name": "User creation request email notification",
+      "webhookId": "REPLACE_OR_REGENERATE_WITH_N8N_OUTLOOK_WEBHOOK_ID",
+      "credentials": {
+        "microsoftOutlookOAuth2Api": {
+          "id": "REPLACE_WITH_YOUR_N8N_OUTLOOK_CREDENTIAL_ID",
+          "name": "REPLACE_WITH_YOUR_OUTLOOK_CREDENTIAL_NAME"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Microsoft Outlook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate email address",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check User Creation Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate email address": {
+      "main": [
+        [
+          {
+            "node": "Check User Creation Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Monday Ticket creation": {
+      "main": [
+        [
+          {
+            "node": "User creation request email notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Monday Ticket creation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "User creation request email notification": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "REMOVED_N8N_INSTANCE_ID"
+  }
+}

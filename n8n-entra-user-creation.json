@@ -1,0 +1,267 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "47cb5d30-f11e-4cb1-939c-c128aee8293e",
+      "name": "Schedule Trigger",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "90bb77fc-6d58-4a6f-90e8-86d5c1e4e80c",
+              "leftValue": "={{ $json.column_values.find(c => c.column.title === \"Request Status\")?.text }}",
+              "rightValue": "Done",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        416,
+        0
+      ],
+      "id": "c32dae39-d77c-4c56-926a-74858fffbcb3",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const itemName = $json.name || '';\n\nconst employeeName = itemName\n  .replace(/user creation request\\s*-\\s*/i, '')\n  .trim();\n\nconst mailNickname = employeeName\n  .replace(/[^a-zA-Z0-9]/g, '')\n  .toLowerCase();\n\nconst tenantDomain = 'REPLACE_WITH_YOUR_ENTRA_TENANT_DOMAIN.onmicrosoft.com';\nconst upn = `${mailNickname}@${tenantDomain}`;\n\nreturn {\n  ...$json,\n  employeeName,\n  mailNickname,\n  upn,\n  tempPassword: 'REPLACE_WITH_TEMP_PASSWORD_OR_GENERATE_SECURELY'\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        624,
+        -96
+      ],
+      "id": "c2d3e02e-1ee4-4b69-917a-ec0e19b5cd9f",
+      "name": "Parse Approved Ticket"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://login.microsoftonline.com/REPLACE_WITH_YOUR_AZURE_TENANT_ID/oauth2/v2.0/token",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "client_id ",
+              "value": "REPLACE_WITH_YOUR_AZURE_APP_CLIENT_ID"
+            },
+            {
+              "name": "client_secret",
+              "value": "REPLACE_WITH_YOUR_AZURE_APP_CLIENT_SECRET"
+            },
+            {
+              "name": "scope",
+              "value": "https://graph.microsoft.com/.default"
+            },
+            {
+              "name": "grant_type",
+              "value": "client_credentials"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        832,
+        -96
+      ],
+      "id": "27db9dde-b7eb-480a-a3f5-0a905165a4bd",
+      "name": "Get Graph Token"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.microsoft.com/v1.0/users",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$json.access_token}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"accountEnabled\": true,\n  \"displayName\": \"{{$node['Parse Approved Ticket'].json.employeeName}}\",\n  \"mailNickname\": \"{{$node['Parse Approved Ticket'].json.mailNickname}}\",\n  \"userPrincipalName\": \"{{$node['Parse Approved Ticket'].json.upn}}\",\n  \"passwordProfile\": {\n    \"forceChangePasswordNextSignIn\": true,\n    \"password\": \"{{$node['Parse Approved Ticket'].json.tempPassword}}\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1040,
+        -96
+      ],
+      "id": "ebc5474c-0d54-4307-8e1f-dac0198c75a5",
+      "name": "Create Microsoft Entra User"
+    },
+    {
+      "parameters": {
+        "resource": "boardItem",
+        "operation": "changeColumnValue",
+        "boardId": "REPLACE_WITH_YOUR_MONDAY_BOARD_ID",
+        "itemId": "={{$node[\"Parse Approved Ticket\"].json.id}}",
+        "columnId": "REPLACE_WITH_YOUR_MONDAY_REQUEST_STATUS_COLUMN_ID",
+        "value": "{\"label\":\"Done\"}"
+      },
+      "type": "n8n-nodes-base.mondayCom",
+      "typeVersion": 1,
+      "position": [
+        1248,
+        -96
+      ],
+      "id": "34b55868-e901-442c-8fe7-3b5001473f0a",
+      "name": "Change a column value for a board item",
+      "credentials": {
+        "mondayComApi": {
+          "id": "REPLACE_WITH_YOUR_N8N_MONDAY_CREDENTIAL_ID",
+          "name": "REPLACE_WITH_YOUR_MONDAY_CREDENTIAL_NAME"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.monday.com/v2",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "REPLACE_WITH_YOUR_MONDAY_API_TOKEN"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"query { boards(ids: REPLACE_WITH_YOUR_MONDAY_BOARD_ID) { items_page(query_params: { operator: and, rules: [ { column_id: \\\"REPLACE_WITH_YOUR_MONDAY_APPROVAL_STATUS_COLUMN_ID\\\", compare_value: [REPLACE_WITH_APPROVED_STATUS_VALUE] }, { column_id: \\\"REPLACE_WITH_YOUR_MONDAY_REQUEST_STATUS_COLUMN_ID\\\", compare_value: [REPLACE_WITH_NOT_DONE_STATUS_VALUE] } ] }) { items { id name } } } }\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        208,
+        0
+      ],
+      "id": "ea3df6a2-2d1f-434e-967d-6f9c5adf708b",
+      "name": "HTTP Request"
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Parse Approved Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Approved Ticket": {
+      "main": [
+        [
+          {
+            "node": "Get Graph Token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Graph Token": {
+      "main": [
+        [
+          {
+            "node": "Create Microsoft Entra User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Microsoft Entra User": {
+      "main": [
+        [
+          {
+            "node": "Change a column value for a board item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "REMOVED_N8N_INSTANCE_ID"
+  }
+}
