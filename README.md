@@ -127,12 +127,6 @@ For a real environment, avoid hardcoding secrets in HTTP Request nodes. Prefer n
 
 New user are created with temporary passwords, a unique random password per user instead of using a static value is preferred so feel free to implement that for your own use case.
 
-## Known Implementation Notes
-
-The second workflow's Monday.com API request returns the GraphQL response as a nested object. The `Extract Monday Items` node converts `data.boards[0].items_page.items` into individual n8n items before the `If` node checks the request status.
-
-The GraphQL query returns `id`, `name`, and `column_values` so the downstream `If` node can safely check whether the request is already marked `Done`.
-
 ## Disclaimer
 
 This is a lab automation template. Review permissions, logging, error handling, password handling, and approval controls before adapting it for production.
