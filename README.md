@@ -123,8 +123,6 @@ Update the workflow placeholders with the actual board ID, column IDs, and statu
 
 ## Security Notes
 
-Do not commit real API tokens, client secrets, tenant-specific IDs, credential IDs, personal emails, or temporary passwords.
-
 For a real environment, avoid hardcoding secrets in HTTP Request nodes. Prefer n8n credentials, environment variables, or a secret manager.
 
 For temporary passwords, prefer generating a unique random password per user instead of using a static value.
